@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FitManager - 정밀 체형 치수 계측 & 맞춤 의류 사이즈 매칭</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#2563eb',
+              600: '#1d4ed8',
+              700: '#1e40af',
+              900: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col selection:bg-blue-500 selection:text-white">
+
+  <!-- 헤더 -->
+  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <i class="ph-bold ph-ruler text-2xl"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-black text-lg text-slate-900 tracking-tight">FitManager</span>
+            <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">v9 3D Mannequin + Precision OCR & iOS Zoom</span>
+          </div>
+          <p class="text-[11px] text-slate-400">정밀 체형 분석 & 맞춤 의류 사이즈 추천</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="guideModalOpenBtn" class="text-xs font-bold px-3 py-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 border border-slate-200">
+          <i class="ph-bold ph-user-circle text-blue-600 text-sm"></i>
+          <span>3D 마네킹 가이드</span>
+        </button>
+        <button id="sampleBtn" class="text-xs font-bold px-3 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-blue-500/20">
+          <i class="ph-bold ph-magic-wand text-sm"></i>
+          <span>샘플 테스트</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 컨테이너 -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6 md:py-10">
+
+    <!-- 단계 인디케이터 -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between max-w-xs mx-auto">
+        <div class="flex flex-col items-center">
+          <div id="step-badge-1" class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-black shadow">1</div>
+          <span class="text-xs mt-1 font-bold text-blue-600">사진 업로드</span>
+        </div>
+        <div id="step-line-1" class="flex-1 h-0.5 bg-slate-200 mx-2 transition-all"></div>
+        <div class="flex flex-col items-center">
+          <div id="step-badge-2" class="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">2</div>
+          <span class="text-xs mt-1 font-bold text-slate-400">키 입력</span>
+        </div>
+        <div id="step-line-2" class="flex-1 h-0.5 bg-slate-200 mx-2 transition-all"></div>
+        <div class="flex flex-col items-center">
+          <div id="step-badge-3" class="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">3</div>
+          <span class="text-xs mt-1 font-bold text-slate-400">측정 결과</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1: 정면과 측면 사진 업로드 영역 -->
+    <section id="step1-container" class="space-y-6">
+      <div class="text-center space-y-2">
+        <h1 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+          정면과 측면 사진을 넣어주세요.
+        </h1>
+        <p class="text-sm text-slate-500 max-w-xl mx-auto">
+          사진을 등록하면 열리는 <strong class="text-blue-600 font-bold">회전 & 가이드라인 자르기 도구</strong>를 통해 몸통을 알맞게 맞추어 자르면 인식이 가장 정확해집니다.
+        </p>
+      </div>
+
+      <!-- 사진 업로드 카드 그리드 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6">
+        
+        <!-- 정면 사진 업로드 카드 -->
+        <div class="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-5 hover:border-blue-500 transition-all flex flex-col items-center justify-center relative overflow-hidden group min-h-[360px] shadow-sm" id="front-dropzone">
+          <input type="file" id="frontInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer z-20">
+          
+          <div id="front-empty-state" class="flex flex-col items-center text-center space-y-3 p-4">
+            <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-inner">
+              <i class="ph-bold ph-person-simple text-3xl"></i>
+            </div>
+            <div>
+              <h3 class="font-black text-slate-800 text-base">정면 사진 업로드</h3>
+              <p class="text-xs text-slate-400 mt-1">머리부터 발끝까지 전신이 보이도록 촬영</p>
+            </div>
+            <span class="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-600 rounded-full">클릭하거나 사진 끌어다 놓기</span>
+          </div>
+
+          <!-- 정면 프리뷰 -->
+          <div id="front-preview-container" class="hidden relative w-full h-full flex flex-col items-center justify-center z-10">
+            <img id="frontPreviewImg" class="max-h-[300px] w-auto rounded-2xl object-contain shadow-md" alt="Front Preview">
+            <div class="absolute top-2 right-2 flex gap-1.5 z-30">
+              <button id="frontCropBtn" title="사진 회전 및 가이드라인 자르기" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-md">
+                <i class="ph-bold ph-arrows-clockwise text-sm"></i> 회전/자르기
+              </button>
+              <button id="frontRemoveBtn" title="사진 삭제" class="w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                <i class="ph-bold ph-x text-sm"></i>
+              </button>
+            </div>
+            <div class="absolute bottom-2 left-2 bg-slate-900/85 text-white text-[11px] px-3 py-1 rounded-xl backdrop-blur font-bold flex items-center gap-1.5 shadow">
+              <i class="ph-fill ph-check-circle text-green-400"></i> 정면 사진 완료
+            </div>
+          </div>
+        </div>
+
+        <!-- 측면 사진 업로드 카드 -->
+        <div class="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-5 hover:border-blue-500 transition-all flex flex-col items-center justify-center relative overflow-hidden group min-h-[360px] shadow-sm" id="side-dropzone">
+          <input type="file" id="sideInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer z-20">
+          
+          <div id="side-empty-state" class="flex flex-col items-center text-center space-y-3 p-4">
+            <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-inner">
+              <i class="ph-bold ph-person-simple-walk text-3xl"></i>
+            </div>
+            <div>
+              <h3 class="font-black text-slate-800 text-base">측면 사진 업로드</h3>
+              <p class="text-xs text-slate-400 mt-1">팔을 가볍게 내리고 측면 90도 자세로 촬영</p>
+            </div>
+            <span class="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-600 rounded-full">클릭하거나 사진 끌어다 놓기</span>
+          </div>
+
+          <!-- 측면 프리뷰 -->
+          <div id="side-preview-container" class="hidden relative w-full h-full flex flex-col items-center justify-center z-10">
+            <img id="sidePreviewImg" class="max-h-[300px] w-auto rounded-2xl object-contain shadow-md" alt="Side Preview">
+            <div class="absolute top-2 right-2 flex gap-1.5 z-30">
+              <button id="sideCropBtn" title="사진 회전 및 가이드라인 자르기" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-md">
+                <i class="ph-bold ph-arrows-clockwise text-sm"></i> 회전/자르기
+              </button>
+              <button id="sideRemoveBtn" title="사진 삭제" class="w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                <i class="ph-bold ph-x text-sm"></i>
+              </button>
+            </div>
+            <div class="absolute bottom-2 left-2 bg-slate-900/85 text-white text-[11px] px-3 py-1 rounded-xl backdrop-blur font-bold flex items-center gap-1.5 shadow">
+              <i class="ph-fill ph-check-circle text-green-400"></i> 측면 사진 완료
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 안내 팁 -->
+      <div class="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 flex items-start space-x-3 text-xs text-blue-950">
+        <i class="ph-fill ph-lightbulb text-xl text-blue-600 mt-0.5 flex-shrink-0"></i>
+        <div class="space-y-1">
+          <p class="font-black text-sm text-blue-950">스마트 체형 계측 안내</p>
+          <p class="text-blue-900/85 leading-relaxed">
+            • <strong>정면 사진</strong>은 신체의 <span class="font-bold text-blue-700">가로 너비</span>를 계측하고, <strong>측면 사진</strong>은 신체의 <span class="font-bold text-blue-700">앞뒤 두께</span>를 계측합니다.<br>
+            • 측정 결과 화면에서 상단 <span class="font-bold text-blue-700">[CM | INCH]</span> 토글 버튼으로 단위를 즉시 변경할 수 있으며, 하단 조견표는 <strong>내 몸 치수보다 작지 않은 안전한 추천 사이즈</strong>를 강조 표시합니다.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: 키 입력 섹션 -->
+    <section id="step2-container" class="mt-8 transition-all duration-500 opacity-40 pointer-events-none scale-95">
+      <div class="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
+        <div class="text-center space-y-1.5">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 mb-1 shadow-inner">
+            <i class="ph-bold ph-arrows-down-up text-2xl"></i>
+          </div>
+          <h2 class="text-xl md:text-2xl font-black text-slate-900">키를 기입해주세요.</h2>
+          <p class="text-xs md:text-sm text-slate-500">실제 신장(cm)을 입력하시면 픽셀 비례식과 3D 왜곡 보정을 통해 8대 치수와 사이즈 조견표를 계산합니다.</p>
+        </div>
+
+        <div class="max-w-xs mx-auto">
+          <div class="relative rounded-2xl shadow-sm">
+            <input type="number" id="heightInput" min="50" max="250" step="0.1" placeholder="예: 175.5" 
+                   class="block w-full rounded-2xl border-2 border-slate-200 py-3.5 pl-5 pr-14 text-slate-900 text-2xl font-black placeholder:text-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-50 transition text-center">
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-5">
+              <span class="text-slate-500 font-bold text-base">cm</span>
+            </div>
+          </div>
+          <p id="heightValidation" class="text-xs text-red-500 mt-1.5 text-center hidden">유효한 키(50cm ~ 250cm)를 입력해주세요.</p>
+        </div>
+
+        <!-- 성별 선택 -->
+        <div class="flex justify-center items-center gap-3 text-xs font-bold">
+          <span class="text-slate-500">신체 기준:</span>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500 has-[:checked]:text-blue-700 transition">
+            <input type="radio" name="gender" value="men" checked class="hidden">
+            <span>남성 (MEN)</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 cursor-pointer px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500 has-[:checked]:text-blue-700 transition">
+            <input type="radio" name="gender" value="women" class="hidden">
+            <span>여성 (WOMEN)</span>
+          </label>
+        </div>
+
+        <!-- 측정하기 버튼 -->
+        <div class="pt-2">
+          <button id="measureBtn" class="w-full max-w-md mx-auto py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-blue-500/25 transition-all transform active:scale-95 flex items-center justify-center space-x-2 text-base md:text-lg">
+            <i class="ph-bold ph-lightning text-xl"></i>
+            <span>정밀 3D 체형 측정하기</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 로딩 스피너 -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-slate-900/75 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white">
+      <div class="w-16 h-16 border-4 border-white/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+      <h3 id="loadingStatusText" class="text-lg font-black">인체 키포인트 및 3D 두께 추출 중...</h3>
+      <p id="loadingSubText" class="text-xs text-slate-300 mt-1">정면 너비와 측면 두께를 결합하여 실시간 3D 둘레를 계산하고 있습니다.</p>
+    </div>
+
+    <!-- STEP 3: 측정 결과 대시보드 -->
+    <section id="step3-results" class="mt-10 space-y-8 hidden">
+      
+      <!-- 상단 요약 배너 -->
+      <div class="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div class="space-y-2">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-blue-300">
+              <i class="ph-fill ph-check-circle"></i> 3D 정밀 계측 완료
+            </div>
+            <h2 class="text-2xl md:text-3xl font-black tracking-tight">체형 정밀 분석 리포트</h2>
+            <p class="text-xs md:text-sm text-slate-300">정면 폭 + 측면 두께 3D 라마누잔 둘레 & 착용 보장 사이즈 매칭</p>
+          </div>
+          
+          <div class="flex items-center gap-5 bg-white/10 p-4 rounded-2xl backdrop-blur">
+            <div class="text-center">
+              <span class="text-xs text-slate-400 block font-semibold">입력 신장</span>
+              <span id="resultUserHeight" class="text-2xl font-black text-white">175.0</span>
+              <span class="text-xs text-slate-300 font-bold" id="resultHeightUnit">cm</span>
+            </div>
+            <div class="w-px h-10 bg-white/20"></div>
+            <div class="text-center">
+              <span class="text-xs text-slate-400 block font-semibold">사이즈 매칭</span>
+              <span class="text-base font-black text-emerald-300 block">하단 조견표 참조</span>
+              <span class="text-[11px] text-slate-300">실측치 이상 추천</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 왜곡 보정 지표 뱃지 바 -->
+        <div class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="bg-white/5 rounded-xl p-2.5">
+            <span class="text-slate-400 block text-[11px]">기울기(Roll) 보정</span>
+            <span id="metricRoll" class="font-black text-white">-1.2° 보정</span>
+          </div>
+          <div class="bg-white/5 rounded-xl p-2.5">
+            <span class="text-slate-400 block text-[11px]">비틀림(Yaw) 보정</span>
+            <span id="metricYaw" class="font-black text-white">0.98x 역투영</span>
+          </div>
+          <div class="bg-white/5 rounded-xl p-2.5">
+            <span class="text-slate-400 block text-[11px]">원근(Pitch) 보정</span>
+            <span id="metricPitch" class="font-black text-white">1.03x 원근수정</span>
+          </div>
+          <div class="bg-white/5 rounded-xl p-2.5">
+            <span class="text-slate-400 block text-[11px]">픽셀-실제 비율</span>
+            <span id="metricScale" class="font-black text-white">0.32 cm/px</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 관절 핀 드래그 에디터 (골반 포인트 단일화) -->
+      <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                <i class="ph-bold ph-hand-pointing text-blue-600 text-lg"></i> 정면 너비 & 측면 두께 핀 미세조정
+              </h3>
+              <span class="px-2 py-0.5 bg-pink-100 text-pink-700 text-[10px] font-black rounded-md">가슴 폭/두께</span>
+              <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-md">허리 폭/두께</span>
+              <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-black rounded-md">단일 골반선</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">
+              <strong>정면 캔버스</strong>에서 너비 점을 조정하고, <strong>측면 캔버스</strong>에서 앞뒤 두께 점을 조정하면 실제 3D 신체 둘레가 실시간으로 재계산됩니다.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="openFrontFocusBtn" class="px-3.5 py-2 text-xs font-black text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-md flex items-center gap-1.5">
+              <i class="ph-bold ph-magnifying-glass-plus text-sm"></i>
+              <span>정면 크게 수정 (모달)</span>
+            </button>
+            <button id="openSideFocusBtn" class="px-3.5 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-md flex items-center gap-1.5">
+              <i class="ph-bold ph-magnifying-glass-plus text-sm"></i>
+              <span>측면 크게 수정 (모달)</span>
+            </button>
+            <button id="resetPinsBtn" class="px-3 py-2 text-xs font-bold text-slate-600 hover:text-red-600 bg-slate-100 hover:bg-red-50 rounded-xl transition flex items-center gap-1.5 border border-slate-200">
+              <i class="ph-bold ph-arrows-clockwise"></i>
+              <span>핀 초기화</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- 정면 인터랙티브 캔버스 카드 (클릭 시 모달 오픈) -->
+          <div id="frontCanvasCard" class="bg-slate-950 rounded-2xl p-3 flex flex-col items-center justify-center min-h-[440px] relative overflow-hidden shadow-inner cursor-pointer hover:ring-2 hover:ring-blue-500/60 transition-all group">
+            <div class="absolute top-3 left-3 z-20 flex items-center gap-2">
+              <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-lg font-black shadow">정면 (너비 폭 계측)</span>
+              <span id="frontPinHoverLabel" class="bg-slate-900/90 text-yellow-300 text-xs px-2.5 py-1 rounded-lg font-black border border-white/20 hidden shadow-lg"></span>
+            </div>
+            <canvas id="interactiveFrontCanvas" class="max-h-[420px] w-auto object-contain canvas-interactive rounded-xl pointer-events-auto"></canvas>
+            <div class="absolute bottom-3 right-3 z-20 flex items-center gap-2">
+              <button id="canvasFrontExpandBtn" class="bg-blue-600 group-hover:bg-blue-500 text-white text-[11px] px-3 py-1.5 rounded-xl font-black shadow-lg transition flex items-center gap-1.5 border border-white/10">
+                <i class="ph-bold ph-arrows-out-simple"></i> 클릭하여 포인트 수정
+              </button>
+            </div>
+          </div>
+
+          <!-- 측면 인터랙티브 캔버스 카드 (클릭 시 모달 오픈) -->
+          <div id="sideCanvasCard" class="bg-slate-950 rounded-2xl p-3 flex flex-col items-center justify-center min-h-[440px] relative overflow-hidden shadow-inner cursor-pointer hover:ring-2 hover:ring-indigo-500/60 transition-all group">
+            <div class="absolute top-3 left-3 z-20 flex items-center gap-2">
+              <span class="bg-indigo-600 text-white text-xs px-2.5 py-1 rounded-lg font-black shadow">측면 (앞뒤 두께 계측)</span>
+              <span id="sidePinHoverLabel" class="bg-slate-900/90 text-yellow-300 text-xs px-2.5 py-1 rounded-lg font-black border border-white/20 hidden shadow-lg"></span>
+            </div>
+            <canvas id="interactiveSideCanvas" class="max-h-[420px] w-auto object-contain canvas-interactive rounded-xl pointer-events-auto"></canvas>
+            <div class="absolute bottom-3 right-3 z-20 flex items-center gap-2">
+              <button id="canvasSideExpandBtn" class="bg-indigo-600 group-hover:bg-indigo-500 text-white text-[11px] px-3 py-1.5 rounded-xl font-black shadow-lg transition flex items-center gap-1.5 border border-white/10">
+                <i class="ph-bold ph-arrows-out-simple"></i> 클릭하여 포인트 수정
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8가지 측정 항목 상세 카드 그리드 (피그마 Container.png 위치에 CM/INCH 토글 배치) -->
+      <div class="space-y-4">
+        <div class="flex flex-row items-center justify-between gap-2">
+          <div>
+            <h3 class="text-xl font-black text-slate-900 flex items-center gap-2">
+              8대 핵심 체형 치수 실측값
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">치수에는 오차가 있을 수 있습니다.</p>
+          </div>
+
+          <!-- Figma Container.png 스타일의 CM / INCH 토글 버튼 -->
+          <div class="inline-flex items-center p-1 bg-white rounded-2xl border-2 border-slate-200 shadow-sm">
+            <button id="unitCmBtn" class="px-5 py-2 rounded-xl bg-blue-600 text-white font-black text-sm shadow-md transition-all">cm</button>
+            <button id="unitInchBtn" class="px-5 py-2 rounded-xl text-slate-400 hover:text-slate-800 font-black text-sm transition-all">inch</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" id="measurementCardsContainer">
+          <!-- JS 동적 렌더링 -->
+        </div>
+      </div>
+
+      <!-- 📊 유니클로 표준 사이즈 조견표 매트릭스 (피그마 Container1.png 위치에 내 옷 치수표 등록 버튼 배치) -->
+      <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 pb-5">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <h3 class="text-lg font-black text-slate-900">
+                유니클로 표준 사이즈 조견표 & 착용 보장 사이즈 분석
+              </h3>
+              <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[11px] font-black rounded-full">착용 보장 알고리즘</span>
+            </div>
+            <p class="text-xs text-slate-500">
+              옷이 몸보다 작아 입지 못하는 일을 방지하기 위해, 내 실측치보다 작지 않은 최소 추천 사이즈에 <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 font-bold rounded">초록색 추천 배지</span>가 칠해집니다.
+            </p>
+            <a href="https://faq-kr.uniqlo.com/pkb_Home_UQ_KR?id=kA0Ie000000TO06&q=utme&l=ko&fs=RelatedArticle" target="_blank" class="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 font-bold pt-1">
+              <span>유니클로 공식 가이드</span>
+              <i class="ph ph-arrow-square-out"></i>
+            </a>
+          </div>
+
+          <!-- Figma Container1.png 위치의 [내 옷 치수표 등록] 버튼 -->
+          <button id="customChartBtn" class="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-black rounded-2xl text-xs transition border border-indigo-200 shadow-sm flex items-center gap-1.5 flex-shrink-0">
+            <i class="ph-bold ph-plus-circle text-indigo-600 text-sm"></i>
+            <span>내 옷 치수표 등록</span>
+          </button>
+        </div>
+
+        <!-- 1. 상의 사이즈 매트릭스 -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+            <h4 class="font-black text-sm text-slate-900">상의(Tops) 추천 사이즈 매칭표</h4>
+          </div>
+          <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+            <table class="w-full text-xs text-center divide-y divide-slate-200" id="topsMatrixTable">
+              <!-- JS 동적 렌더링 -->
+            </table>
+          </div>
+        </div>
+
+        <!-- 2. 하의 사이즈 매트릭스 -->
+        <div class="space-y-3 pt-4 border-t border-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+            <h4 class="font-black text-sm text-slate-900">하의(Bottoms) 추천 사이즈 매칭표</h4>
+          </div>
+          <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+            <table class="w-full text-xs text-center divide-y divide-slate-200" id="bottomsMatrixTable">
+              <!-- JS 동적 렌더링 -->
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🛍️ 등록된 내 옷 치수표 매칭 섹션 (Custom Size Chart Matching) -->
+      <div id="customChartResultSection" class="hidden bg-white rounded-3xl border-2 border-indigo-100 p-6 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+              <i class="ph-bold ph-t-shirt"></i>
+            </div>
+            <div>
+              <h3 class="font-black text-slate-900 text-base" id="customChartTitle">등록한 옷 치수표 분석 결과</h3>
+              <p class="text-xs text-slate-400">사용자가 직접 등록한 쇼핑몰 치수표와의 실시간 착용 매칭</p>
+            </div>
+          </div>
+          <button id="deleteCustomChartBtn" class="text-xs font-bold text-red-500 hover:text-red-700">치수표 삭제</button>
+        </div>
+        <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+          <table class="w-full text-xs text-center divide-y divide-slate-200" id="customMatrixTable"></table>
+        </div>
+      </div>
+
+      <!-- 재측정 및 공유 버튼 -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+        <button id="reMeasureBtn" class="w-full sm:w-auto px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm">
+          <i class="ph-bold ph-arrow-counter-clockwise"></i>
+          <span>새 사진으로 측정</span>
+        </button>
+        <button id="copySummaryBtn" class="w-full sm:w-auto px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-md shadow-blue-500/20">
+          <i class="ph-bold ph-copy"></i>
+          <span>치수 요약 복사하기</span>
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- 1. 사진 회전 & 크롭 모달 -->
+  <div id="cropModal" class="hidden fixed inset-0 bg-slate-900/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-3xl w-full p-6 space-y-4 shadow-2xl flex flex-col max-h-[94vh]">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+            <i class="ph-bold ph-crop text-xl"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-slate-900 text-base" id="cropModalTitle">사진 회전 및 가이드라인 맞추기</h3>
+            <p class="text-xs text-slate-400">영역을 조절하면 크롭된 영역이 뷰포트 세로 길이에 맞춰 자동으로 확대됩니다.</p>
+          </div>
+        </div>
+        <button id="cropCancelBtn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2">
+          <button id="rotateCCWBtn" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-200 flex items-center gap-1 shadow-sm">
+            <i class="ph-bold ph-arrow-counter-clockwise"></i> 반시계 90°
+          </button>
+          <button id="rotateCWBtn" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-200 flex items-center gap-1 shadow-sm">
+            <i class="ph-bold ph-arrow-clockwise"></i> 시계 90°
+          </button>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500 font-bold flex-shrink-0">정밀 수평:</span>
+          <input type="range" id="fineRotateSlider" min="-45" max="45" step="0.5" value="0" class="w-24 accent-blue-600 cursor-pointer">
+          <span id="rotateAngleVal" class="text-slate-800 font-black w-8 text-right">0°</span>
+        </div>
+
+        <div class="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-slate-500 font-bold flex-shrink-0 flex items-center gap-1"><i class="ph-bold ph-magnifying-glass-plus text-blue-600"></i> 줌 확대:</span>
+          <button id="zoomOutBtn" class="w-6 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded flex items-center justify-center">-</button>
+          <input type="range" id="zoomSlider" min="1.0" max="3.0" step="0.05" value="1.0" class="w-20 accent-blue-600 cursor-pointer">
+          <button id="zoomInBtn" class="w-6 h-6 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded flex items-center justify-center">+</button>
+          <span id="zoomVal" class="text-slate-800 font-black w-8 text-right">1.0x</span>
+        </div>
+      </div>
+
+      <div class="relative flex-1 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center min-h-[360px] select-none" id="cropViewport">
+        <canvas id="cropCanvas" class="max-h-[380px] w-auto object-contain"></canvas>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+        <div class="flex items-center gap-2">
+          <button id="cropResetBtn" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            전체 영역
+          </button>
+          <button id="cropFitBodyBtn" class="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-xs transition">
+            세로 꽉 채우기 (Auto Fit)
+          </button>
+        </div>
+        <button id="cropConfirmBtn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-sm transition shadow-lg shadow-blue-500/25 flex items-center gap-1.5">
+          <i class="ph-bold ph-check"></i>
+          <span>회전 & 자르기 완료</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 사실적인 3D 화이트 마네킹 치수 측정 가이드 모달 (image_097f0e.png 스타일) -->
+  <div id="guideModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+            <i class="ph-bold ph-user-circle text-xl"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-slate-900 text-base">3D 마네킹 신체 치수 측정 가이드</h3>
+            <p class="text-xs text-slate-400">부위별 정확한 계측선 및 계측 기준</p>
+          </div>
+        </div>
+        <button id="guideModalCloseBtn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- 3D 화이트 마네킹 비주얼 (image_097f0e.png 사실적 그래픽 재현) -->
+        <div class="bg-gradient-to-b from-slate-100 to-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden border border-slate-300">
+          <svg viewBox="0 0 320 460" class="w-56 h-80 mx-auto">
+            <defs>
+              <linearGradient id="body3DGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#cbd5e1" />
+                <stop offset="35%" stop-color="#ffffff" />
+                <stop offset="70%" stop-color="#f8fafc" />
+                <stop offset="100%" stop-color="#94a3b8" />
+              </linearGradient>
+              <linearGradient id="head3DGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="60%" stop-color="#e2e8f0" />
+                <stop offset="100%" stop-color="#94a3b8" />
+              </linearGradient>
+            </defs>
+
+            <ellipse cx="160" cy="445" rx="60" ry="8" fill="rgba(0,0,0,0.15)" />
+            <ellipse cx="160" cy="50" rx="18" ry="24" fill="url(#head3DGrad)" stroke="#64748b" stroke-width="0.5"/>
+            <path d="M 152 72 L 168 72 L 170 88 L 150 88 Z" fill="url(#body3DGrad)" />
+
+            <path d="M 112 92 C 125 90, 150 88, 160 88 C 170 88, 195 90, 208 92 C 215 96, 218 108, 202 128 C 195 138, 190 155, 186 175 C 182 195, 190 215, 192 235 C 175 240, 145 240, 128 235 C 130 215, 138 195, 134 175 C 130 155, 125 138, 118 128 C 102 108, 105 96, 112 92 Z" fill="url(#body3DGrad)" stroke="#64748b" stroke-width="0.5"/>
+
+            <path d="M 108 96 C 98 120, 92 165, 90 200 C 88 230, 86 260, 84 275 C 82 278, 86 282, 88 275 C 92 260, 98 220, 105 180 C 110 150, 114 125, 118 105 Z" fill="url(#body3DGrad)" stroke="#64748b" stroke-width="0.5"/>
+            <path d="M 212 96 C 222 120, 228 165, 230 200 C 232 230, 234 260, 236 275 C 238 278, 234 282, 232 275 C 228 260, 222 220, 215 180 C 210 150, 206 125, 202 105 Z" fill="url(#body3DGrad)" stroke="#64748b" stroke-width="0.5"/>
+
+            <path d="M 130 236 C 132 280, 135 330, 136 365 C 136 395, 138 430, 138 440 L 148 440 C 148 430, 150 395, 150 365 C 150 330, 152 280, 155 240 Z" fill="url(#body3DGrad)" stroke="#64748b" stroke-width="0.5"/>
+            <path d="M 165 240 C 168 280, 170 330, 170 365 C 170 395, 172 430, 172 440 L 182 440 C 182 430, 184 395, 184 365 C 185 330, 188 280, 190 236 Z" fill="url(#body3DGrad)" stroke="#64748b" stroke-width="0.5"/>
+
+            <!-- Lines -->
+            <line x1="110" y1="92" x2="210" y2="92" stroke="#facc15" stroke-width="3"/>
+            <circle cx="110" cy="92" r="3.5" fill="#facc15" stroke="#ffffff" stroke-width="1.5" />
+            <circle cx="210" cy="92" r="3.5" fill="#facc15" stroke="#ffffff" stroke-width="1.5" />
+            <text x="218" y="96" fill="#ca8a04" font-size="10" font-weight="bold">어깨 넓이</text>
+
+            <line x1="120" y1="128" x2="200" y2="128" stroke="#f43f5e" stroke-width="3"/>
+            <circle cx="120" cy="128" r="3.5" fill="#f43f5e" stroke="#ffffff" stroke-width="1.5" />
+            <circle cx="200" cy="128" r="3.5" fill="#f43f5e" stroke="#ffffff" stroke-width="1.5" />
+            <text x="208" y="132" fill="#e11d48" font-size="10" font-weight="bold">가슴 둘레</text>
+
+            <line x1="134" y1="175" x2="186" y2="175" stroke="#10b981" stroke-width="3"/>
+            <circle cx="134" cy="175" r="3.5" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
+            <circle cx="186" cy="175" r="3.5" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
+            <text x="194" y="179" fill="#059669" font-size="10" font-weight="bold">허리 둘레</text>
+
+            <line x1="128" y1="230" x2="192" y2="230" stroke="#a855f7" stroke-width="3"/>
+            <circle cx="128" cy="230" r="3.5" fill="#a855f7" stroke="#ffffff" stroke-width="1.5" />
+            <circle cx="192" cy="230" r="3.5" fill="#a855f7" stroke="#ffffff" stroke-width="1.5" />
+            <text x="200" y="234" fill="#7e22ce" font-size="10" font-weight="bold">골반/엉덩이</text>
+
+            <line x1="120" y1="235" x2="120" y2="440" stroke="#38bdf8" stroke-width="2" stroke-dasharray="3,3"/>
+            <text x="48" y="340" fill="#0284c7" font-size="10" font-weight="bold">다리 총장</text>
+          </svg>
+          <span class="text-[11px] text-slate-500 font-bold mt-2">정면 3D 마네킹 해부학적 계측선 가이드</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+            <span class="font-bold text-slate-800 text-xs">어깨 넓이</span>
+            <p class="text-slate-500 text-[11px]">좌우 어깨 뼈 양 끝점 사이의 수평 직선 거리</p>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+            <span class="font-bold text-slate-800 text-xs">가슴 둘레</span>
+            <p class="text-slate-500 text-[11px]">겨드랑이 직하부 가슴 가장 볼륨있는 부위의 수평 둘레</p>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+            <span class="font-bold text-slate-800 text-xs">허리 둘레</span>
+            <p class="text-slate-500 text-[11px]">갈비뼈와 골반 사이 가장 잘록하게 들어간 허리선 둘레</p>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+            <span class="font-bold text-slate-800 text-xs">골반/엉덩이 둘레</span>
+            <p class="text-slate-500 text-[11px]">엉덩이의 가장 돌출된 최대 수평 둘레</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 내 옷 치수표 등록 모달 (직접 입력 & 쇼핑몰 사진 OCR 추출) -->
+  <div id="customChartModal" class="hidden fixed inset-0 bg-slate-900/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl flex flex-col max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <i class="ph-bold ph-plus-circle text-xl"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-slate-900 text-base">원하는 옷의 치수표 등록 & 실시간 매칭</h3>
+            <p class="text-xs text-slate-400">쇼핑몰 상세페이지 사이즈표 사진을 올리거나 직접 입력하세요.</p>
+          </div>
+        </div>
+        <button id="customChartModalCloseBtn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <!-- 탭 전환 -->
+      <div class="flex p-1 bg-slate-100 rounded-2xl">
+        <button id="tabOcrBtn" class="flex-1 py-2.5 rounded-xl bg-white text-indigo-700 font-black text-xs shadow-sm transition">
+          <i class="ph-bold ph-camera"></i> 사진으로 자동 등록 (AI OCR)
+        </button>
+        <button id="tabManualBtn" class="flex-1 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 font-bold text-xs transition">
+          <i class="ph-bold ph-pencil-simple"></i> 직접 치수 입력
+        </button>
+      </div>
+
+      <!-- Tab 1: 사진 OCR 업로드 -->
+      <div id="panelOcr" class="space-y-4 text-xs">
+        <div class="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-2xl p-6 text-center space-y-3 cursor-pointer bg-slate-50/50" id="ocrDropzone">
+          <input type="file" id="ocrInput" accept="image/*" class="hidden">
+          <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto text-2xl">
+            <i class="ph-bold ph-file-image"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-slate-800 text-sm">쇼핑몰 사이즈표 캡처 사진 업로드</h4>
+            <p class="text-slate-400 text-xs mt-0.5">SIZE INFO 표 사진을 올리면 S/38, M/40 수치를 AI가 자동 인식합니다.</p>
+          </div>
+        </div>
+
+        <div id="ocrLoading" class="hidden p-4 bg-indigo-50 rounded-xl text-center text-indigo-700 font-bold flex items-center justify-center gap-2">
+          <div class="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <span>AI OCR로 사이즈표 표와 숫자를 스캔하고 있습니다...</span>
+        </div>
+      </div>
+
+      <!-- Tab 2: 직접 치수 입력 및 OCR 결과 편집 폼 -->
+      <div id="panelManual" class="space-y-4 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">옷 / 브랜드 이름</label>
+            <input type="text" id="customGarmentName" value="쇼핑몰 등록 의류" placeholder="예: 무신사 스탠다드 슬랙스" class="w-full p-2.5 rounded-xl border border-slate-200 font-medium">
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">열(Column) 순서 형식</label>
+            <select id="customColumnFormat" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-white text-indigo-700">
+              <option value="format_kr_tops">상의: 총장 / 어깨 / 가슴단면 / 소매 (쇼핑몰 기본형)</option>
+              <option value="format_std_tops">상의: 어깨 / 가슴둘레 / 총장 / 소매 (표준형)</option>
+              <option value="format_bottoms">하의: 허리 / 엉덩이 / 허벅지 / 총장 (바지형)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 동적 사이즈 테이블 -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-800">사이즈별 실측 치수 (cm)</span>
+            <button id="addCustomRowBtn" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-xs">+ 행 추가</button>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-center divide-y divide-slate-200 text-xs" id="customInputTable">
+              <thead class="bg-slate-50 font-bold text-slate-600">
+                <tr id="customTableHeader">
+                  <th class="p-2">사이즈</th>
+                  <th class="p-2" id="colHead1">총장(cm)</th>
+                  <th class="p-2" id="colHead2">어깨(cm)</th>
+                  <th class="p-2" id="colHead3">가슴단면(cm)</th>
+                  <th class="p-2" id="colHead4">소매(cm)</th>
+                  <th class="p-2">삭제</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100" id="customTableBody">
+                <tr>
+                  <td class="p-1"><input type="text" value="S/38" class="w-16 p-1 text-center font-bold border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="74.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="48.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="58.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="62.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><button class="text-red-500 font-bold delete-row-btn">✕</button></td>
+                </tr>
+                <tr>
+                  <td class="p-1"><input type="text" value="M/40" class="w-16 p-1 text-center font-bold border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="76.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="50.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="60.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="63.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><button class="text-red-500 font-bold delete-row-btn">✕</button></td>
+                </tr>
+                <tr>
+                  <td class="p-1"><input type="text" value="L/42" class="w-16 p-1 text-center font-bold border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="78.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="52.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="62.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><input type="number" step="0.1" value="64.0" class="w-16 p-1 text-center border rounded"></td>
+                  <td class="p-1"><button class="text-red-500 font-bold delete-row-btn">✕</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <button id="saveCustomChartBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-sm transition shadow-md shadow-indigo-500/20">
+          이 치수표로 저장하고 내 몸과 실시간 비교하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 푸터 -->
+  <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400">
+    <div class="max-w-4xl mx-auto px-4 space-y-1">
+      <p class="font-bold text-slate-600">FitManager AI Body Measurement & Sizing Matrix</p>
+      <p>유니클로 신체 사이즈 가이드라인 및 3D 라마누잔 둘레 계측 적용</p>
+    </div>
+  </footer>
+
+  <!-- 스크립트 로드 -->
+  <script src="sample-data.js"></script>
+  <script src="pose-engine.js"></script>
+  <script src="app.js"></script>
+
+  <!-- 4. 포인트 정밀 수정 대형 포커스 모달 (스크린샷 2026-08-26 오후 5.22.15.jpg 스타일) -->
+  <div id="focusEditModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
+    <div class="bg-slate-900 border border-slate-700/60 rounded-3xl max-w-4xl w-full p-4 sm:p-6 shadow-2xl flex flex-col max-h-[96vh] overflow-y-auto space-y-4">
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+          <span id="focusModalSideBadge" class="bg-blue-600 text-white text-xs sm:text-sm px-3.5 py-1.5 rounded-xl font-black shadow-md flex items-center gap-1.5">
+            <i class="ph-bold ph-arrows-out-cardinal"></i>
+            <span id="focusModalTitle">정면 (너비 폭 계측)</span>
+          </span>
+          <span id="focusModalPinHoverBadge" class="bg-slate-800 text-yellow-300 text-xs px-3 py-1.5 rounded-xl font-black border border-yellow-400/30 hidden shadow-lg animate-pulse">
+            어깨 좌측
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="focusModalResetBtn" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold rounded-xl text-xs border border-slate-700 transition flex items-center gap-1">
+            <i class="ph-bold ph-arrows-clockwise"></i> 핀 초기화
+          </button>
+          <button id="focusModalCloseBtn" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-xs shadow-md transition flex items-center gap-1">
+            <i class="ph-bold ph-check"></i>
+            <span>완료</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Large High-Res Canvas Container (Pure Full-Focus View) -->
+      <div class="relative bg-slate-950 rounded-2xl p-2 sm:p-4 flex flex-col items-center justify-center min-h-[520px] sm:min-h-[640px] max-h-[75vh] overflow-hidden border border-slate-800 shadow-inner select-none cursor-crosshair">
+        <canvas id="focusCanvas" class="max-h-[620px] w-auto object-contain canvas-interactive rounded-xl"></canvas>
+        <div class="absolute bottom-4 right-4 z-20 bg-black/80 backdrop-blur text-white text-xs px-3.5 py-1.5 rounded-xl font-bold border border-white/10 shadow-lg flex items-center gap-1.5">
+          <i class="ph-bold ph-cursor-click text-blue-400"></i>
+          <span>점을 끌어서 너비/두께 조정</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
